@@ -1,0 +1,128 @@
+
+import { v4 as uuidv4 } from "uuid";
+import { getSession } from "./memory.js";
+import { createInterviewAgent } from "./technical.js";
+
+export const startConversation=(req,res)=>{
+     const { company } = req.body;
+
+  const sessionId = uuidv4();
+  const session = getSession(sessionId);
+
+  session.company = company || "General";
+
+  res.json({
+    message: "Interview session started",
+    sessionId
+  });
+}
+
+export const createInterview=async(req,res)=>{
+    try {
+    const { sessionId, message } = req.body;
+
+    if (!sessionId || !message) {
+      return res.status(400).json({ error: "sessionId and message required" });
+    }
+
+    const session = getSession(sessionId);
+    const agent = createInterviewAgent(session.company);
+
+    // Build conversation history
+    const historyText = session.history
+      .map(item => `User: ${item.user}\nAI: ${item.ai}`)
+      .join("\n");
+
+    const finalPrompt = `
+Previous Conversation:
+${historyText}
+
+User: ${message}
+`;
+
+   const aiReply = await agent.ask(finalPrompt);
+
+    // Save history
+    session.history.push({
+      user: message,
+      ai: aiReply
+    });
+
+    session.questionCount++;
+
+    res.json({
+      reply: aiReply,
+      questionNumber: session.questionCount
+    });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Interview processing failed" });
+  }
+}
+
+export const generateReport=(req,res)=>{
+     const { sessionId } = req.body;
+
+  const session = getSession(sessionId);
+
+  res.json({
+    message: "Interview Ended",
+    totalQuestions: session.questionCount,
+    fullConversation: session.history
+  });
+}
+
+export const chatHistory=(req,res)=>{
+          const { sessionId } = req.params;
+
+  const session = getSession(sessionId);
+
+  if (!session) {
+    return res.status(404).json({ error: "Session not found" });
+  }
+
+  res.json({
+    company: session.company,
+    totalQuestions: session.questionCount,
+    history: session.history
+  });
+}
+
+
+export const askTechnicalQuestion = async (req, res) => {
+  try {
+    const { question } = req.body;
+
+    if (!question) {
+      return res.status(400).json({ error: "Question is required" });
+    }
+
+    const agent = createInterviewAgent("Technical Expert");
+
+    const prompt = `
+You are a senior technical mentor.
+
+Answer the following question clearly and concisely.
+If it is coding related:
+- Explain logic
+- Provide example
+- Give code snippet
+- Mention time complexity if applicable
+
+Question:
+${question}
+`;
+
+    const answer = await agent.ask(prompt);
+
+    res.json({
+      question,
+      answer
+    });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Failed to generate answer" });
+  }
+};

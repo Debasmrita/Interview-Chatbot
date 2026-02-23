@@ -10,7 +10,7 @@ import { askTechnicalQuestion } from "./controllers/chat.js";
 import {
   startNormalChat,
   normalChatMessage
-} from "./chat.js";
+} from "./controllers/chat.js";
 const router = express.Router();
 
   // NORMAL CHAT ROUTES
